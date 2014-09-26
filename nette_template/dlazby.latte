@@ -1,0 +1,79 @@
+{block content}
+
+<div class="panel section_name">DLAŽBY</div>
+
+<div class="content-template content_smallbox content-dlazby">
+
+    <div class="panel-content-box">
+        Dlažba je nedílnou součástí každého domu. Je přirozeným doplňkem, proto je výběr materiálu a barvy důležitým krokem.
+        Zajistíme Vám kompletní zhotovení příjezdových cest, parkovacích stání nebo chodníků, od novostaveb po rekonstrukce.
+        Pomůžeme s výběrem nejvhodnějšího materiálu a vše kompletně zrealizujeme.
+    </div>
+
+    <div class="content_table">
+
+        <div class="table-row">
+            <div class="col" data-bind="template: { name: 'offer-template', data: zula }"></div>
+            <div class="col" data-bind="template: { name: 'offer-template', data: zamkova }"></div>
+            <div class="col" data-bind="template: { name: 'offer-template', data: skladebna }"></div>
+            <div class="col" data-bind="template: { name: 'offer-template', data: zatravnovaci}"></div>
+        </div>
+    </div>
+
+    <div class="content_table">
+        <div class="table-row">
+            <div class="col photo" data-bind="template: { name: 'offer-template', data: velkoformat }"></div>
+            <div class="col photo" data-bind="template: { name: 'offer-template', data: velkoformat }"></div>
+        </div>
+
+    </div>
+
+    <div class="panel-content-box">
+        Zámková a skladebná dlažba je charakteristická vysokou pevností, nízkou obrusností, mrazuvzdorností a vysokou odolností povrchu
+        proti vnějším vlivům. Doporučujeme používat kvalitní dlažby, které jsou opatřeny trvalou impregnací. Ta zamezuje nasákavosti betonu
+        a výrazně omezuje uplívání povrchových nečistot. Dlažba je vhodná zejmena pro plochy s velkým namáháním. Zajímavě působí i dlažba s
+        "natur" povrchem, které se vzhledem blíží přírodnímu kameni. Další variantou je zatravňovací dlažba umožňující současné zpevnění ploch
+        i jejich zatravnění. Spáry lze také vyplnit štěrkovou drtí. Zatravňovací dlažbu je možné použít také i pro pojezdové plochy.
+        Luxusním prvkem jsou velkoformátové dlažby s reliéfním povrchem nebo přírodní žulové kostky.
+    </div>
+
+
+    <script type="text/html" id="offer-template">
+        <a href="#" title="" data-bind="attr: { href: photo, title: title }" data-gallery>
+            <div class="offer" data-bind="style: { backgroundImage: img, 'height': h, 'width': w }">
+                <div class="title" data-bind="text: title"></div>
+                <div class="bottom_overflow">
+                    <img class="arrow" src="<?php echo Nette\Templating\Helpers::escapeHtmlComment($basePath) ?>/images/icons/arrow_up.png" alt="up" />
+                    <div class="description" data-bind="text: description"></div>
+                </div>
+            </div>
+        </a>
+    </script>
+
+    <script type="text/javascript">
+
+        function PopulateCellModel() {
+
+            var default_width = '210px';
+            var default_height = '210px';
+
+            this.zula = { title: 'ŽULOVÉ KOSTKY', img: "dlazba_zula.jpg", photo: "dlazba_zula.jpg", description: 'Ekonomicky výhodná varianta klasického ...', h: default_height, w: default_width };
+            this.zamkova = { title: 'ZÁMKOVÁ DLAŽBA', img: "dlazba_zamkova.jpg", photo: "dlazba_zamkova.jpg", description: 'Elegantní řešení pro oplocení chodníku ...', h: default_height, w: default_width };
+            this.skladebna = { title: 'SKLADEBNÁ DLAŽBA', img: "dlazba_skladebna.jpg", photo: "dlazba_skladebna.jpg", description: 'Vyznačuje se vysokou odolností ...', h: default_height, w: default_width };
+            this.zatravnovaci = { title: 'ZATRAVŇOVACÍ DLAŽBA', img: "dlazba_zatravnovaci.jpg", photo: "dlazba_zatravnovaci.jpg", description: 'Vyznačuje se vysokou odolností ...', h: default_height, w: default_width };
+            this.velkoformat = { title: 'VELKOFORMÁTOVÁ DLAŽBA', img: "dlazba_velkoformat.jpg", photo: "dlazba_velkoformat.jpg", description: 'Ekonomicky výhodná varianta klasického ...', h: default_height, w: '432px' };
+
+            for(var property in this) {
+                if(this.hasOwnProperty(property)) {
+                    this[property].photo = {$basePath} +'/images/photos/' + this[property].photo;
+                    this[property].icon = {$basePath} +'/images/icons/' + this[property].icon;
+                    this[property].img = 'url("' + {$basePath} + "/images/photos/" + this[property].img + '")';
+                }
+            }
+        }
+        ko.applyBindings(new PopulateCellModel());
+
+    </script>
+
+</div>
+
