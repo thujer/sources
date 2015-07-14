@@ -1,2 +1,1 @@
-Ukázky zdrojových kódů
-
+Source code show
