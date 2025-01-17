@@ -1,16 +1,15 @@
 
 "use strict";
 
-const mysql = require("promise-mysql");
-const Redis = require('ioredis');
-const Promise = require('bluebird');
-
+import mysql from "promise-mysql";
+import Redis from "ioredis";
+import Promise from "bluebird";
 
 /**
  * Connect and init database
  * @author Tomas Hujer
  */
-class mysqlProc {
+export class MysqlProc {
 
     /**
      * Constructor
@@ -20,7 +19,7 @@ class mysqlProc {
      */
     constructor (o_config_db, o_config_redis, o_config_socket_debug) {
 
-        var self = this;
+        const self = this;
 
         self.o_config_db = o_config_db;
         self.o_config_redis = o_config_redis;
@@ -34,6 +33,7 @@ class mysqlProc {
 
         self.a_proc_cache = [];
 
+        console.log('Trying init MySQL pool...');
         self.o_pool = mysql.createPool({
             host: o_config_db.host,
             user: o_config_db.user,
@@ -42,10 +42,13 @@ class mysqlProc {
             connectionLimit: 10
         });
 
-
-        if(self.b_redis_enabled === true) {
-
-            self.o_redis = new Redis(self.o_config_redis);
+        if (self.b_redis_enabled === true) {
+            try {
+                console.log('Try init Redis...');
+                self.o_redis = new Redis(self.o_config_redis);
+            } catch(e) {
+                console.error('MySQL-Redis connection problem', e)
+            }
 
             self.o_redis.on('connect', () => {
                 self.o_redis.select(o_config_redis.db);
@@ -53,10 +56,9 @@ class mysqlProc {
             });
 
             self.o_redis.on('error', (e) => {
-                console.log('MySQL-promises', e)
+                console.error('MySQL-Redis error', e)
             });
         }
-
     }
 
 
@@ -150,7 +152,7 @@ class mysqlProc {
      */
     callProc(s_proc_name, o_param, b_use_cache = true) {
 
-        var self = this;
+        const self = this;
 
         return new Promise((resolve, reject) => {
 
@@ -158,9 +160,9 @@ class mysqlProc {
             if((self.b_redis_enabled === true) && (b_use_cache === true)) {
 
                 // Get key for Redis, params as namespaces
-                var s_key = mysqlProc.makeRedisCacheKey(s_proc_name, o_param);
+                let s_key = MysqlProc.makeRedisCacheKey(s_proc_name, o_param);
 
-                console.log('callProc: redis cache GET s_key:', s_key);
+                //console.log('callProc: redis cache GET s_key:', s_key);
 
                 if(self.nl_socket_debug_state) {
                     self.io_client.emit('message', {
@@ -173,9 +175,6 @@ class mysqlProc {
                     .then((b_exists) => {
 
                         var b_cacheable = (s_proc_name[1] === 's');
-
-                        console.log('Is Redis cached?', b_exists,' is cacheable?', b_cacheable);
-                        //console.log('Is Redis cached?', b_exists)
 
                         if(self.nl_socket_debug_state) {
                             self.io_client.emit('message', {
@@ -199,7 +198,7 @@ class mysqlProc {
                                 .catch((e) => {
                                     console.error(e)
                                     //console.timeEnd('getCachedItem')
-                                })
+                                });
 
                         } else {
                             //console.time('getMySQLItem')
@@ -211,25 +210,27 @@ class mysqlProc {
                                 })
                                 .catch((e) => {
                                     //console.timeEnd('getMySQLItem')
-                                    console.error(e)
-                                })
+                                    //console.error(e);
+                                    reject(e);
+                                });
                         }
 
                     })
                     .catch((e) => {
                         console.error(e)
-                    })
+                    });
 
             } else {
                 // Redis config not defined, use only MySQL
-                console.time('getMySQLItemNoRedis')
+                //console.time('getMySQLItemNoRedis');
                 self.callProcMySQL(s_proc_name, o_param)
                     .then((a_row) => {
-                        console.timeEnd('getMySQLItemNoRedis')
+                        //console.timeEnd('getMySQLItemNoRedis');
                         resolve(a_row);
                     })
                     .catch((e) => {
-                        console.error(e)
+                        //console.error(e);
+                        //console.timeEnd('getMySQLItemNoRedis');
                     })
             }
 
@@ -413,13 +414,11 @@ class mysqlProc {
      */
     callProcMySQL(s_proc_name, o_param, b_cacheable) {
 
-        var self = this;
+        const self = this;
 
         return new Promise((resolve, reject) => {
 
-            var sql = '';
-
-            var s_key_core = mysqlProc.makeRedisCacheKey('ws_core_parameters', {
+            var s_key_core = MysqlProc.makeRedisCacheKey('ws_core_parameters', {
                 s_proc_name: s_proc_name,
                 db: self.o_config_db.db
             });
@@ -428,12 +427,12 @@ class mysqlProc {
 
             self.getCache(s_key_core, b_cacheable)
                 .then((a_param) => {
-                    console.log('callProcMySQL:', s_key_core, 'exists in cache', a_param);
+                    //console.log('callProcMySQL:', s_key_core, 'exists in cache', a_param);
 
                     self.callProcLowLevel(s_proc_name, a_param, o_param)
                         .then((a_row) => {
 
-                            var s_key = mysqlProc.makeRedisCacheKey(s_proc_name, JSON.stringify(o_param));
+                            var s_key = MysqlProc.makeRedisCacheKey(s_proc_name, JSON.stringify(o_param));
 
                             if(self.b_redis_enabled === true) {
                                 self.setRedisCache(s_key, a_row)
@@ -457,8 +456,6 @@ class mysqlProc {
                 })
                 .catch((s_error) => {
 
-                    console.log('callProcMySQL', s_key_core, 'not found cache', s_error);
-
                     let s_sql = "CALL ws_core_parameters ('" + s_proc_name + "', '" + self.o_config_db.db + "');";
 
                     console.log(s_sql);
@@ -466,7 +463,27 @@ class mysqlProc {
                     self.o_pool.query(s_sql)
                         .then((a_row_core) => {
 
-                            var a_param = a_row_core[0][0].param_list
+                            if(!a_row_core[0].length) {
+                                throw new Error('Procedure probably not exists');
+                                reject(e);
+                            }
+
+                            /*
+                            console.log(a_row_core[0])
+
+                            if(a_row_core[0][0].hasOwnProperty('param_list')) {
+                                throw new Error('Proc not defined (' + s_proc_name + ')');
+                            }
+                            */
+
+                            /*
+                            if(! a_row_core[0].length) {
+                                reject(new Error('Empty result'))
+                                return;
+                            }
+                            */
+
+                            let a_param = a_row_core[0][0].param_list
                                 .toString()
                                 .replace(/(?:\r\n|\r|\n)/g, '')
                                 .replace(/ *\([^)]*\) */g, '')
@@ -483,13 +500,12 @@ class mysqlProc {
                                         resolve(a_row_item)
                                     })
                                     .catch((e) => {
-                                        console.error(e, s_proc_name, a_param, o_param)
+                                        //console.error(e, s_proc_name, a_param, o_param)
                                         reject(e);
                                     })
 
                             } else {
                                 // With Redis cache
-                                console.log('callProcMySQL: setCache', s_key_core, a_param.length)
                                 self.setCache(s_key_core, a_param)
                                     .then((b_result) => {
 
@@ -497,9 +513,8 @@ class mysqlProc {
                                             .then((a_row_item) => {
                                                 console.log('self.b_redis_enabled', self.b_redis_enabled)
 
-                                                let s_key_item = mysqlProc.makeRedisCacheKey(s_proc_name, JSON.stringify(o_param), a_row_item);
+                                                let s_key_item = MysqlProc.makeRedisCacheKey(s_proc_name, JSON.stringify(o_param), a_row_item);
 
-                                                console.log('callProcMySQL: setCache:', s_key_item, a_row_item.length)
                                                 self.setCache(s_key_item, a_row_item)
                                                     .then((b_result) => {
                                                         resolve(a_row_item)
@@ -507,31 +522,21 @@ class mysqlProc {
                                                     .catch((e) => {
                                                         reject(e);
                                                     })
-
-
                                             })
                                             .catch((e) => {
                                                 reject(e);
                                             })
-
-
                                     })
                                     .catch((e) => {
                                         reject(e)
                                     })
-
                             }
-
-
                         })
                         .catch((e) => {
                             reject(e);
                         });
-
                 })
-
         })
-
     }
 
 
@@ -541,127 +546,138 @@ class mysqlProc {
      * @param a_param {array} Stored proc params from MySQL definition
      * @param o_param {object} Stored procedure params values
      */
-    callProcLowLevel(s_proc_name, a_param, o_param) {
+    async callProcLowLevel(s_proc_name, a_param, o_param) {
 
-        var self = this;
+        const self = this;
 
-        return new Promise((resolve, reject) => {
+        let s_proc_call = 'CALL `' + s_proc_name + '` (';
 
-            var s_proc_call = 'CALL ' + s_proc_name + ' (';
+        //console.log('DEBUG: callProcLowLevel s_proc_name:', s_proc_name, 'a_param:', a_param, 'typeof', typeof a_param, o_param);
 
-            //console.log('DEBUG: callProcLowLevel s_proc_name:', s_proc_name, 'a_param:', a_param, 'typeof', typeof a_param, o_param);
+        let b_first = true;
+        a_param.forEach((s_param_raw) => {
 
-            var b_first = true;
-            a_param.forEach((s_param_raw) => {
+            if(s_param_raw !== "") {
 
-                if(s_param_raw !== "") {
+                var a_param = s_param_raw.trim().split(' ');    // TODO: Try to add this if problem .replace(', ', ',')
+                var s_param_io = a_param[0];
+                var s_param_name = a_param[1].replace('`', '').replace('`', '').substring(1);
 
-                    var a_param = s_param_raw.trim().split(' ');    // TODO: Try to add this if problem .replace(', ', ',')
-                    var s_param_io = a_param[0];
-                    var s_param_name = a_param[1].replace('`', '').replace('`', '').substring(1);
-
-                    if (a_param[2]) {
-                        var s_param_type = a_param[2].replace(')', '').replace('(', ' ').split(' ')[0];
-                    }
-
-
-                    var a_value = [];
-
-                    //console.log(s_param_io, s_param_name, s_param_type);
-
-                    if (s_param_io == 'IN') {
-
-                        if ((s_param_name in o_param) === true) {
-
-                            var s_value = o_param[s_param_name];
-
-                            console.log(s_value, s_param_type, s_param_name);
-
-                            if (s_value === undefined) {
-                                s_value = 'NULL';
-                                s_param_type = '';
-                            }
-
-                            try {
-
-                                //console.log('--- DEBUG: s_param_name', s_param_name, '(', s_param_type, ')');
-
-                                if(s_param_type === undefined) {
-                                    console.error(new Error('Undefined s_param_type in param ' + s_param_name + ', in proc ' + s_proc_name + ',IO:' + s_param_io +', value:' + s_value))
-                                    console.error('a_param:', a_param)
-                                    console.error('o_param:', o_param)
-                                    console.log('--- Error in ', s_param_name, ', proc', s_proc_name)
-                                }
-
-                                s_param_type = ((s_param_type !== undefined) ? s_param_type.toLowerCase() : s_param_type);
-
-                                switch (s_param_type) {
-                                    case 'datetime':
-                                    case 'date':
-                                        //a_value.push("'"+dateformat(s_value, 'yyyy-mm-dd H:MM:ss')+"'");
-                                        a_value.push("'" + s_value + "'");
-                                        break;
-                                    case 'int':
-                                        a_value.push(parseInt(s_value) || 0);
-                                        break;
-                                    case 'double':
-                                        a_value.push(parseFloat(s_value) || '0');
-                                        break;
-                                    case 'varchar':
-                                    case 'text':
-                                        a_value.push("'" + s_value + "'");
-                                        break;
-                                    default:
-                                        a_value.push(s_value);
-                                }
-                            } catch(e) {
-                                console.error('s_param_type parsing error:', s_param_type, e.message, e.stack)
-                            }
-
-                        } else {
-                            a_value.push('NULL');
-                        }
-
-                        a_value.forEach((s_value) => {
-                            if (!b_first) {
-                                s_proc_call += ',';
-                            }
-                            b_first = false;
-                            s_proc_call += s_value;
-                        });
-                    }
-
+                if (a_param[2]) {
+                    var s_param_type = a_param[2].replace(')', '').replace('(', ' ').split(' ')[0];
                 }
 
 
-            });
+                var a_value = [];
 
-            s_proc_call += ');';
+                //console.log(s_param_io, s_param_name, s_param_type);
 
-            console.log('s_proc_call', s_proc_call);
+                if (s_param_io == 'IN') {
 
-            if(self.nl_socket_debug_state) {
-                self.io_client.emit('message', {
-                    s_device: self.o_config_socket_debug.s_device,
-                    s_message: s_proc_call
-                })
+                    if ((s_param_name in o_param) === true) {
+
+                        var s_value = o_param[s_param_name];
+
+                        //console.log(s_value, s_param_type, s_param_name);
+
+                        if (s_value === undefined) {
+                            s_value = 'NULL';
+                            s_param_type = '';
+                        }
+
+                        try {
+
+                            //console.log('--- DEBUG: s_param_name', s_param_name, '(', s_param_type, ')');
+
+                            if(s_param_type === undefined) {
+                                console.error(new Error('Undefined s_param_type in param ' + s_param_name + ', in proc ' + s_proc_name + ',IO:' + s_param_io +', value:' + s_value))
+                                console.error('a_param:', a_param);
+                                console.error('o_param:', o_param);
+                                console.log('--- Error in ', s_param_name, ', proc', s_proc_name)
+                            }
+
+                            s_param_type = ((s_param_type !== undefined) ? s_param_type.toLowerCase() : s_param_type);
+
+                            switch (s_param_type) {
+                                case 'datetime':
+                                case 'date':
+                                    //a_value.push("'"+dateformat(s_value, 'yyyy-mm-dd H:MM:ss')+"'");
+                                    a_value.push("'" + s_value + "'");
+                                    break;
+                                case 'int':
+                                case 'tinyint':
+                                case 'bigint':
+                                case 'intunsigned':
+                                case 'intsigned':
+                                case 'tinyintunsigned':
+                                    a_value.push(parseInt(s_value) || 0);
+                                    break;
+                                case 'double':
+                                    a_value.push(parseFloat(s_value) || '0');
+                                    break;
+                                case 'varchar':
+                                case 'varcharcharacter':
+                                case 'text':
+                                    a_value.push("'" + s_value + "'");
+                                    break;
+                                default:
+                                    console.log('MysqlProc Uncased type: ', s_param_type, s_value);
+                                    a_value.push(s_value);
+                            }
+                        } catch(e) {
+                            console.error('s_param_type parsing error:', s_param_type, e.message, e.stack)
+                        }
+
+                    } else {
+                        a_value.push('NULL');
+                    }
+
+                    a_value.forEach((s_value) => {
+                        if (!b_first) {
+                            s_proc_call += ',';
+                        }
+                        b_first = false;
+                        s_proc_call += s_value;
+                    });
+                }
+
             }
 
-            self.o_pool.query(s_proc_call)
-                .then((a_row) => {
-                    //console.log('callProcLowLevel result', a_row)
-                    resolve(a_row);
-                })
-                .catch((e) => {
-                    console.error('SQL ERR ', e, 'in', s_proc_call);
-                    reject(e);
-                });
-        })
 
+        });
+
+        s_proc_call += ');';
+
+        console.log(s_proc_call);
+
+        if(self.nl_socket_debug_state) {
+            self.io_client.emit('message', {
+                s_device: self.o_config_socket_debug.s_device,
+                s_message: s_proc_call
+            })
+        }
+
+        return await self.o_pool.query(s_proc_call)
     }
 
 
+    query(s_sql) {
+        const self = this;
+        return new Promise((resolve, reject) => {
+            self.o_pool.query(s_sql)
+                .then((a_result) => {
+                    resolve(a_result);
+                })
+                .catch((err) => {
+                    reject(err);
+                })
+        })
+    }
+
+
+    close() {
+        console.log('Close MySQL Pool');
+        this.o_pool.end();
+    }
+
 }
-
-module.exports = mysqlProc;
-
