@@ -1,7 +1,13 @@
-/*
-    IndexDB storage
-    Author: Tomas Hujer
-*/
+/**
+ *******************************************************************************
+ * @file    data_storage.js
+ * @author  Tomas Hujer
+ * @version 0.1.0
+ * @date    Oct 19 2018
+ * @brief   IndexDB storage
+ *
+ *******************************************************************************
+ */
 
 const S_STORAGE_TYPE_IDB = 1;
 const S_STORAGE_TYPE_RAM = 2;
@@ -165,8 +171,6 @@ DataStorage.prototype.open = function() {
                 case 1:
                     log_message(1, 'level ' + upgradeDB.oldVersion);
                     upgradeDB.createObjectStore('barcode_out', {
-                        /*keyPath: 's_code'*/
-                        /*keyPath: 'nl_id_barcode'*/
                         keyPath: 'nl_id',
                         autoIncrement: true
                     });
@@ -195,21 +199,6 @@ DataStorage.prototype.open = function() {
         self.s_type = S_STORAGE_TYPE_RAM;
         return false;
     }
-
-    /*if(typeof(o_promise.catch) !== 'undefined') {
-        o_promise.catch(function(e) {
-            log_message(1, 'Database version error, neeeded to renew database !');
-        });
-    }*/
-
-    /*.catch(function (e) {
-        log_message(2, 'Database version error, delete database and create new');
-        $('*[data-target="sync_info"]').append('Database version error, delete database and create new\n');
-        if (e.name === 'VersionError') {
-            self.deleteAll();
-        }
-
-    });*/
 
     return o_promise;
 };
@@ -344,34 +333,6 @@ DataStorage.prototype.getLogged = function(cb_success, cb_err) {
         })
 
     }
-
-    /*
-    TODO:
-    if(self.s_type === S_STORAGE_TYPE_RAM) {
-
-        login(function(_o_login) {
-
-            if(_o_login.s_device_uid && _o_login.s_surname && _o_login.s_place) {
-
-                // Zkopíruj uid, je to již definovaný klíè
-                _o_login.uid = _o_login.s_device_uid;
-
-                self.o_idb.put(_o_login);
-                log_message(2, 'New device UID stored to iDB', _o_login.s_device_uid);
-                o_login = _o_login;
-
-                show_device_uid();
-
-                return true;
-
-            } else {
-                return false;
-            }
-        });
-
-    }
-    */
-
 }
 
 
@@ -444,19 +405,14 @@ DataStorage.prototype.updateLogged = function(o_property, cb) {
 
                 for(var s_property in o_property) {
 
-                    //log_message(1, 'updateLogged', s_property)
-
                     if(o_property.hasOwnProperty(s_property)) {
 
-                        //log_message(1, 'founded', o_property[s_property]);
                         o_result.value[s_property] = o_property[s_property];
                     }
 
                 }
 
                 self.putLogged(o_result.value, cb);
-
-                //log_message(1, 'updateLogged updated: ', o_result.value);
 
             });
 
