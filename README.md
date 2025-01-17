@@ -2,8 +2,11 @@
 
 ## C++
 
+### ESP32
+
 * Command - universal command detection (Arduino framework for ESP32)
 
+### STM32
 * motor_driver - PWM motor driver (STM32 project for medical device)
 
 
